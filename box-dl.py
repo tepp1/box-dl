@@ -6,7 +6,7 @@ import requests
 ACCESS_TOKEN = "JaqDP5lbY8H6z0aRR1zgu9f8YS2nkjXu"
 
 # --- フォルダURL または 共有リンク ---
-BOX_URL = "https://app.box.com/folder/349696191837"  # 例: フォルダページURL / 共有リンク
+BOX_URL = "https://app.box.com/folder/abcd123456789"  # 例: フォルダページURL / 共有リンク
 SAVE_DIR = "./downloads"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
