@@ -1,55 +1,49 @@
-import os
-import re
 import requests
 
-# --- ここに Developer Token を入れる ---
-ACCESS_TOKEN = "JaqDP5lbY8H6z0aRR1zgu9f8YS2nkjXu"
+# --- OAuth2 認証情報 ---
+CLIENT_ID = "vzb58xkbb5960350l0zdz1sby8jyi6n2"
+CLIENT_SECRET = "s5JiTwxCalcCjs0PufEqve2BVhQkUZM5"
 
-# --- フォルダURL または 共有リンク ---
-BOX_URL = "https://app.box.com/folder/abcd123456789"  # 例: フォルダページURL / 共有リンク
-SAVE_DIR = "./downloads"
+# --- 共有リンク ---
+SHARED_LINK = "https://app.box.com/s/ag97yyjnu7n5dfvckpd8p15y8gpzxlyy"
 
-os.makedirs(SAVE_DIR, exist_ok=True)
+# --- 保存ファイル名 ---
+SAVE_AS = "downloaded_file.txt"
 
-# --- フォルダIDを抽出（フォルダページURL / パブリック共有リンク どちらも対応） ---
-m = re.search(r"/folder/(\d+)", BOX_URL)
-if not m:
-    raise ValueError("フォルダIDを BOX_URL から抽出できません")
-folder_id = m.group(1)
-
-# --- API 共通ヘッダー ---
-HEADERS = {
-    "Authorization": f"Bearer {ACCESS_TOKEN}"
+# 1. OAuth2 トークン取得
+token_url = "https://api.box.com/oauth2/token"
+data = {
+    "grant_type": "client_credentials",  # サーバー側アプリ向け
+    "client_id": CLIENT_ID,
+    "client_secret": CLIENT_SECRET,
 }
 
-def list_folder_items(folder_id):
-    """フォルダ内のアイテム一覧を取得"""
-    url = f"https://api.box.com/2.0/folders/{folder_id}/items"
-    resp = requests.get(url, headers=HEADERS)
-    resp.raise_for_status()
-    return resp.json()["entries"]
+r = requests.post(token_url, data=data)
+r.raise_for_status()
+access_token = r.json()["access_token"]
 
-def download_file(file_id, file_name):
-    """ファイルをダウンロード"""
-    url = f"https://api.box.com/2.0/files/{file_id}/content"
-    resp = requests.get(url, headers=HEADERS, stream=True)
-    resp.raise_for_status()
+print(access_token)
 
-    path = os.path.join(SAVE_DIR, file_name)
-    with open(path, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=4096):
-            f.write(chunk)
+headers = {
+    "Authorization": f"Bearer {access_token}",
+    "BoxApi": f"shared_link={SHARED_LINK}"
+}
 
-    print(f"✅ Downloaded: {file_name}")
+# 2. 共有リンクからファイル情報を取得
+shared_items_url = "https://api.box.com/2.0/shared_items"
+r = requests.get(shared_items_url, headers=headers)
+r.raise_for_status()
+file_info = r.json()
+file_id = file_info["id"]
+filename = file_info.get("name", SAVE_AS)
 
-def main():
-    print(f"📁 Folder ID = {folder_id}")
+# 3. ファイルをダウンロード
+download_url = f"https://api.box.com/2.0/files/{file_id}/content"
+r = requests.get(download_url, headers=headers, stream=True)
+r.raise_for_status()
 
-    items = list_folder_items(folder_id)
+with open(filename, "wb") as f:
+    for chunk in r.iter_content(chunk_size=8192):
+        f.write(chunk)
 
-    for item in items:
-        if item["type"] == "file":
-            download_file(item["id"], item["name"])
-
-if __name__ == "__main__":
-    main()
+print("DL 完了:", filename)
